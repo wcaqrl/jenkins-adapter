@@ -1,0 +1,137 @@
+# LPK v2：包名、版本等静态信息在 package.yml 中。
+usage: |
+  管理员用户名为 admin，初始密码为 peter111；
+  打开应用后自动完成管理员登录；
+  安装时自动完成账号、插件及深色主题配置；
+  数据持久保存在 /lzcapp/var/jenkins；
+
+application:
+  subdomain: jenkins
+  multi_instance: false
+  routes:
+    - /=http://jenkins:8080
+  injects:
+    # request：只暂存本次登录或网页改密请求中的候选凭据。
+    - id: jenkins-capture-admin-credentials
+      on: request
+      auth_required: true
+      when:
+        - /j_spring_security_check
+        - /user/*
+        - /me/*
+      do: |
+        const path = String(ctx.request.path || "");
+        const method = String(ctx.request.method || "").toUpperCase();
+        if (method !== "POST") return;
+
+        const isLogin = path === "/j_spring_security_check";
+        const isPasswordChange = /^\/(?:user\/[^/]+|me)\/security\/configSubmit$/i.test(path);
+        if (!isLogin && !isPasswordChange) return;
+
+        let form = null;
+        try {
+          form = ctx.body.getForm();
+        } catch {
+          form = null;
+        }
+        if (!form || typeof form !== "object") return;
+
+        const first = (name) => {
+          const values = form[name];
+          return Array.isArray(values) && typeof values[0] === "string" ? values[0] : "";
+        };
+
+        if (isLogin) {
+          const username = first("j_username");
+          const password = first("j_password");
+          if (!username || !password) return;
+          ctx.flow.set("jenkins_pending_action", "login");
+          ctx.flow.set("jenkins_pending_username", username);
+          ctx.flow.set("jenkins_pending_password", password);
+          return;
+        }
+
+        const password = first("user.password");
+        const confirmation = first("user.password2");
+        // Jenkins 未改密时两个字段是不同的受保护占位值；相等才表示用户提交了新密码。
+        if (!password || password !== confirmation) return;
+        ctx.flow.set("jenkins_pending_action", "password-change");
+        ctx.flow.set(
+          "jenkins_pending_username",
+          ctx.persist.get("jenkins.admin.username") || "admin",
+        );
+        ctx.flow.set("jenkins_pending_password", password);
+
+    # response：确认 Jenkins 接受请求后，再把凭据按当前微服用户写入 persist。
+    - id: jenkins-commit-admin-credentials
+      on: response
+      auth_required: true
+      when:
+        - /j_spring_security_check
+        - /user/*
+        - /me/*
+      do: |
+        const action = ctx.flow.get("jenkins_pending_action");
+        if (action !== "login" && action !== "password-change") return;
+
+        const status = Number(ctx.status || 0);
+        if (status < 200 || status >= 400) return;
+
+        const location = String(ctx.headers.get("Location") || "");
+        if (action === "login" && /\/loginError(?:[/?#]|$)/i.test(location)) return;
+
+        const username = ctx.flow.get("jenkins_pending_username");
+        const password = ctx.flow.get("jenkins_pending_password");
+        if (typeof username === "string" && username.length > 0) {
+          ctx.persist.set("jenkins.admin.username", username);
+        }
+        if (typeof password === "string" && password.length > 0) {
+          ctx.persist.set("jenkins.admin.password", password);
+        }
+
+    # browser：首次使用固定初始凭据，网页改密后自动改用 persist 中的新凭据。
+    - id: jenkins-login-autofill
+      on: browser
+      auth_required: true
+      when:
+        - /login
+      do:
+        - src: builtin://simple-inject-password
+          params:
+            user:
+              $persist: jenkins.admin.username
+              default: admin
+            password:
+              $persist: jenkins.admin.password
+              default: peter111
+            userSelector: "#j_username"
+            passwordSelector: "#j_password"
+            formSelector: 'form[name="login"]'
+            submitSelector: 'button[name="Submit"]'
+            autoSubmit: true
+            submitMode: requestSubmit
+            retryCount: 10
+            retryIntervalMs: 300
+
+services:
+  jenkins:
+    # 已通过微服上的工具链、账号、主题、插件及持久化验证的 amd64 镜像。
+    image: registry.lazycat.cloud/peter/jenkins-peter-9a85f1af-ab49-4652-8d83-4ba2b7262e11:a9778070fff0160e
+    run_as: "1000:1000"
+    environment:
+      JENKINS_URL: 'https://{{ .S.AppDomain }}/'
+      JENKINS_ADMIN_PASSWORD: peter111
+      TZ: Asia/Shanghai
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - --output
+        - /dev/null
+        - http://127.0.0.1:8080/login
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s

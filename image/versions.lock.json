@@ -1,0 +1,12 @@
+{
+  "jenkins": "2.580.2",
+  "base_image": "docker.io/jenkins/jenkins:2.580.2-jdk21@sha256:19db581de85e7ce6a1ad89e55a0318d1114e4f103d2dc25493a235ff2b26d044",
+  "python_image": "python:3.12-slim-trixie@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea",
+  "go": "go1.27.1",
+  "go_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+  "node": "v26.8.2",
+  "node_sha256": "40e1d3225c1c9ae9a2671c98ecb9857e4d5555026394f348645676798840d5c5",
+  "npm": "12.0.2",
+  "architecture": "linux/amd64",
+  "checked_on": "2026-10-28"
+}

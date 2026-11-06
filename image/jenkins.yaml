@@ -1,0 +1,25 @@
+jenkins:
+  systemMessage: "Peter 的 Jenkins：Python 3.12、Go、Node.js 与 npm 开发环境"
+  numExecutors: 2
+  mode: NORMAL
+  labelString: "builtin python312 golang nodejs"
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+        - user:
+            name: "admin"
+            permissions:
+              - "Overall/Administer"
+  slaveAgentPort: -1
+unclassified:
+  location:
+    url: "${JENKINS_URL:-http://localhost:8080/}"
+appearance:
+  themeManager:
+    disableUserThemes: false
+    theme: "dark"
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "/usr/bin/git"

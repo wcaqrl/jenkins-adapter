@@ -1,0 +1,119 @@
+name: Update Jenkins for LazyCat
+run-name: ${{ (github.event_name == 'push' || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry-run)) && 'Jenkins → LazyCat [仅检查]' || 'Jenkins → LazyCat [验证定制镜像、打包并送审]' }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update.yml
+      - image/**
+      - tests/**
+      - lazycat-action.yml
+      - lzc-build.yml
+      - lzc-manifest.yml
+      - package.yml
+      - lzc-icon.png
+  schedule:
+    # 每 6 小时检查；UTC 00/06/12/18:41，即北京时间 08/14/20/02:41。
+    # GitHub 的实际启动时间可能延迟，不是本机常驻定时任务。
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 勾选＝仅检查；取消勾选＝构建、验证升级、转存、打包并送审。
+        type: boolean
+        default: true
+      verify-image:
+        description: 仅检查时也在 Runner 构建并验证镜像（不上传、不打包、不送审）。
+        type: boolean
+        default: false
+      retry-rejected:
+        description: 修复后重试已拒绝的源版本，分配新的应用版本；须取消仅检查。
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: jenkins-lazycat-update
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install configuration test dependency
+        run: python3 -m pip install --disable-pip-version-check PyYAML==6.0.2
+      - name: Validate metadata, scripts, changelog and delivery guards
+        run: |
+          sh -n image/entrypoint.sh
+          python3 -B -m unittest discover -s tests -v
+      - name: Verify developer permission before real publication
+        if: (github.event_name == 'workflow_dispatch' && !inputs.dry-run) || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH == 'true')
+        env:
+          LZC_API_TOKEN: ${{ secrets.LZC_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push --dry-run origin "HEAD:${GITHUB_REF_NAME}"
+          if [[ -z "${LZC_API_TOKEN}" ]]; then
+            echo '::error::Configure LZC_API_TOKEN in jenkins-adapter Actions Secrets.'
+            exit 1
+          fi
+          response_file="${RUNNER_TEMP}/jenkins-review-access.json"
+          curl --fail --silent --show-error --retry 2 \
+            --header "X-API-Token: ${LZC_API_TOKEN}" \
+            --output "${response_file}" \
+            'https://appstore.api.lazycat.cloud/sdk/v3/developer/app/peter.lazycat.app.jenkins/review/list?page=0&size=1'
+          python3 - "${response_file}" <<'PY'
+          import json, sys
+          with open(sys.argv[1]) as response:
+              result = json.load(response)
+          if result.get('errorCode') != 0:
+              raise SystemExit('Developer PAT cannot access peter.lazycat.app.jenkins: ' + str(result.get('msg', 'unknown error')))
+          print('Developer access to peter.lazycat.app.jenkins verified.')
+          PY
+      - name: Build and exercise real Jenkins upgrade without publishing
+        if: github.event_name == 'workflow_dispatch' && inputs.dry-run && inputs.verify-image
+        run: |
+          set -euo pipefail
+          python3 -B image/ci/upstream.py candidate > "${RUNNER_TEMP}/jenkins-candidate.json"
+          python3 - "${RUNNER_TEMP}/jenkins-candidate.json" <<'PY'
+          import hashlib, json, os, subprocess, sys
+          c = json.load(open(sys.argv[1]))
+          env = dict(os.environ, LAZYCAT_SOURCE_VERSION=c['version'], LAZYCAT_SOURCE_REF=c['ref'],
+                     LAZYCAT_SOURCE_REVISION=c['digest'], LAZYCAT_APPLICATION_VERSION=c['version'],
+                     LAZYCAT_TARGET_PLATFORM='linux/amd64')
+          fingerprint = hashlib.sha256((os.environ['GITHUB_SHA'] + c['digest']).encode()).hexdigest()
+          env['LAZYCAT_BUILD_FINGERPRINT'] = 'sha256:' + fingerprint
+          env['LAZYCAT_OUTPUT_IMAGE'] = 'ttl.sh/lazycat-jenkins-' + fingerprint[:12] + ':24h'
+          for key in list(env):
+              if key in ('GITHUB_TOKEN', 'GH_TOKEN', 'LZC_API_TOKEN') or key.startswith('LAZYCAT_AUTH_'):
+                  del env[key]
+          subprocess.run(['python3', '-B', 'image/ci/prepare.py', '--verify-only'], env=env, check=True)
+          PY
+      - name: Upload isolated verification reports
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.dry-run && inputs.verify-image
+        uses: actions/upload-artifact@v7
+        with:
+          name: jenkins-runtime-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .lazycat-action/reports/
+            .lazycat-action/runtime-proof.json
+          if-no-files-found: ignore
+
+  update:
+    needs: validate
+    uses: wcaqrl/lazycat-action/.github/workflows/lazycat.yml@v1
+    with:
+      config: lazycat-action.yml
+      operation: auto
+      runner: ubuntu-24.04
+      toolchains: docker
+      enable-qemu: false
+      dry-run: ${{ github.event_name == 'push' || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry-run) }}
+      retry-rejected: ${{ github.event_name == 'workflow_dispatch' && inputs.retry-rejected || false }}
+    secrets:
+      LZC_API_TOKEN: ${{ secrets.LZC_API_TOKEN }}

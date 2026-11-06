@@ -1,0 +1,58 @@
+version: 2
+project:
+  root: .
+  build_config: lzc-build.yml
+  package_file: package.yml
+  output: dist/peter.lazycat.app.jenkins.lpk
+  target_arch: amd64
+source:
+  kind: oci
+  image: docker.io/jenkins/jenkins
+  select:
+    strategy: semver-tag
+    channel: stable
+    # Jenkins LTS uses 2.<baseline>.<patch>-jdk21; weekly releases have only
+    # 2.<weekly>-jdk21. Ignore rolling lts/latest aliases and other JDKs/OSes.
+    # Extract x.y.z BEFORE SemVer comparison: -jdk21 is an image variant,
+    # not a prerelease suffix. Compare numbers, never strings or tag dates.
+    tag_regex: '^2\.[0-9]+\.[0-9]+-jdk21$'
+    version_regex: '^(?P<version>2\.[0-9]+\.[0-9]+)-jdk21$'
+    version_template: '{version}'
+changelog:
+  mode: command
+  command: python3 -B image/ci/upstream.py changelog
+state:
+  file: .lazycat-action.lock.yml
+update:
+  strategy: publish
+  allow_downgrade: false
+build:
+  run_buildscript: true
+  prepare:
+    mode: command
+    # Includes both the image recipe and its verification scripts. Downloads
+    # and generated metadata live in a temporary context, outside this tree.
+    context: image
+    command: python3 -B image/ci/prepare.py
+    # Anonymous staging avoids requiring an extra registry PAT or making a
+    # newly-created GHCR package public. LazyCat immediately copies this tested
+    # image into its own permanent registry; ttl.sh is NOT the runtime registry.
+    output_image: 'ttl.sh/lazycat-jenkins-{fingerprint}:24h'
+images:
+  - id: jenkins
+    target: service
+    service: jenkins
+    source: docker.io/jenkins/jenkins
+    delivery:
+      mode: lazycat
+stores:
+  official:
+    enabled: true
+    create_if_missing: false
+    skip_if_version_exists: true
+    continue_if_newer_version: true
+    retry:
+      enabled: true
+      max_attempts: 5
+      initial_delay: 2s
+      max_delay: 30s

@@ -1,0 +1,36 @@
+# LPK v2 静态包元数据；需要 lzc-cli >= 2.0.0。
+package: peter.lazycat.app.jenkins
+version: 1.0.2
+name: Jenkins
+description: Jenkins LTS 持续集成与自动化构建服务器，预装常用开发工具和推荐插件
+author: Peter
+license: MIT
+homepage: https://www.jenkins.io/
+# services.jenkins.run_as 的最低系统版本。
+min_os_version: 1.6.0
+admin_only: true
+unsupported_platforms:
+  - android
+  - ios
+locales:
+  zh-CN:
+    name: Jenkins
+    description: Jenkins LTS 持续集成与自动化构建服务器，预装常用开发工具和推荐插件
+    usage: |
+      管理员用户名为 admin，初始密码为 peter111；
+      打开应用后自动完成管理员登录；
+      安装时自动完成账号、插件及深色主题配置；
+      数据持久保存在 /lzcapp/var/jenkins；
+  en-US:
+    name: Jenkins
+    description: Jenkins LTS continuous integration and automation server with common development tools and recommended plugins
+    usage: |
+      The administrator username is admin. The initial password is peter111;
+      The administrator is signed in automatically when the app is opened;
+      The account, plugins, and dark theme are configured automatically during installation;
+      Persistent data is stored in /lzcapp/var/jenkins;
+permissions:
+  required:
+    - net.internet
+  optional:
+    - net.lan

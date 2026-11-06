@@ -1,0 +1,8 @@
+{
+  "package": "peter.lazycat.app.jenkins",
+  "application_version": "1.0.2",
+  "source_version": "2.568.3",
+  "image": "registry.lazycat.cloud/peter/jenkins-peter-9a85f1af-ab49-4652-8d83-4ba2b7262e11:a9778070fff0160e@sha256:a9778070fff0160e39edd32ef21515d28fa5223d121e39d510df3a8a5b4ca792",
+  "lpk": "https://lzc-download-1301583638.cos.ap-guangzhou.myqcloud.com/appstore/lpks/pkgs/peter.lazycat.app.jenkins/peter.lazycat.app.jenkins-v1.0.2.lpk",
+  "inspected_on": "2026-11-06"
+}
