@@ -23,6 +23,7 @@ import urllib.request
 from xml.sax.saxutils import escape
 
 from contract import CHECKS, ROOT
+from baseline import load_baseline
 
 
 def docker(*args):
@@ -222,7 +223,10 @@ def main():
         stop()
 
         print("Seeding approved baseline Jenkins " + baseline["source_version"], flush=True)
-        old = start(baseline["image"], "upgrade")
+        # Preserve the approved manifest/config/layer digests while avoiding
+        # registry authentication that is unavailable on hosted Runners.
+        baseline_id = load_baseline(baseline)
+        old = start(baseline_id, "upgrade")
         old.wait(baseline["source_version"])
         old.configuration()
         changed = "Aa1_" + secrets.token_hex(6)

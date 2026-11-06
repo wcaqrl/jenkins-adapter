@@ -109,6 +109,12 @@ LAZYCAT_SOURCE_VERSION=2.580.2 LAZYCAT_SOURCE_TAG=2.580.2-jdk21 \
 - Python 模块/venv/pip、Git commit、Go 编译执行、Node/npm 测试；
 - 新容器再次挂载同一目录，以及显式密码重置后数据仍在。
 
+旧版基线从懒猫官方 `registry-static.lazycat.cloud` 静态镜像 CDN 读取，
+路径约定与应用商店服务端一致。短时只读端点仅监听 Runner 的 `127.0.0.1`，
+向 Docker 返回锁定的原始 Manifest，并将其中的分层请求重定向到官方 HTTPS CDN。
+Manifest 摘要、Docker 校验的分层摘要及加载后的配置 ID 都必须与商店旧镜像一致；
+不需要懒猫 Docker 仓库密码，不替换成另一个重建镜像，也不改 Docker daemon 配置。
+
 `lzc-build.yml` 的打包脚本会拒绝缺少验证证明、摘要不符或测试后被修改的配方。
 Manifest 和 Package 按解析后的配置内容校验，允许执行器改写空行、缩进、引号
 及键顺序；仅放行指定服务的镜像引用和应用版本变更。镜像摘要另行核对，
