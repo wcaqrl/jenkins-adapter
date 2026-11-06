@@ -4,7 +4,6 @@ usage: |
   打开应用后自动完成管理员登录；
   安装时自动完成账号、插件及深色主题配置；
   数据持久保存在 /lzcapp/var/jenkins；
-
 application:
   subdomain: jenkins
   multi_instance: false
@@ -61,7 +60,6 @@ application:
           ctx.persist.get("jenkins.admin.username") || "admin",
         );
         ctx.flow.set("jenkins_pending_password", password);
-
     # response：确认 Jenkins 接受请求后，再把凭据按当前微服用户写入 persist。
     - id: jenkins-commit-admin-credentials
       on: response
@@ -88,7 +86,6 @@ application:
         if (typeof password === "string" && password.length > 0) {
           ctx.persist.set("jenkins.admin.password", password);
         }
-
     # browser：首次使用固定初始凭据，网页改密后自动改用 persist 中的新凭据。
     - id: jenkins-login-autofill
       on: browser
@@ -112,11 +109,11 @@ application:
             submitMode: requestSubmit
             retryCount: 10
             retryIntervalMs: 300
-
 services:
   jenkins:
     # 已通过微服上的工具链、账号、主题、插件及持久化验证的 amd64 镜像。
-    image: registry.lazycat.cloud/peter/jenkins-peter-9a85f1af-ab49-4652-8d83-4ba2b7262e11:a9778070fff0160e
+    # upstream: ttl.sh/lazycat-jenkins-60da5d674f39:24h@sha256:543a6c80dc86d17343b1181c1c27a9ecdc221551f4bdc7b00a7a36680f0217e5
+    image: registry.lazycat.cloud/peter/lazycat-jenkins-60da5d674f39:81f4032ea9c2543f
     run_as: "1000:1000"
     environment:
       JENKINS_URL: 'https://{{ .S.AppDomain }}/'

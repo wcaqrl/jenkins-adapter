@@ -1,6 +1,6 @@
 # LPK v2 静态包元数据；需要 lzc-cli >= 2.0.0。
 package: peter.lazycat.app.jenkins
-version: 1.0.2
+version: 2.580.2
 name: Jenkins
 description: Jenkins LTS 持续集成与自动化构建服务器，预装常用开发工具和推荐插件
 author: Peter

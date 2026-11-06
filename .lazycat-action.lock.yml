@@ -1,0 +1,38 @@
+version: 2
+source:
+    kind: oci
+    version: 2.580.2
+    ref: docker.io/jenkins/jenkins:2.580.2-jdk21
+    revision: sha256:19db581de85e7ce6a1ad89e55a0318d1114e4f103d2dc25493a235ff2b26d044
+    tag: 2.580.2-jdk21
+    image: docker.io/jenkins/jenkins
+fingerprint: sha256:60da5d674f39b9fffcf8126b0fbc56d71ffb2f310a6bf9c50c4c83338385ccc8
+status: packaged
+images:
+    - id: jenkins
+      source_ref: ttl.sh/lazycat-jenkins-60da5d674f39:24h@sha256:543a6c80dc86d17343b1181c1c27a9ecdc221551f4bdc7b00a7a36680f0217e5
+      source_digest: sha256:543a6c80dc86d17343b1181c1c27a9ecdc221551f4bdc7b00a7a36680f0217e5
+      runtime_ref: registry.lazycat.cloud/peter/lazycat-jenkins-60da5d674f39:81f4032ea9c2543f
+application:
+    package: peter.lazycat.app.jenkins
+    version: 2.580.2
+    lpk_sha256: 7f384744bfcf014aede28da06eeec0ef9e25dcfbd93820c7b0a64b6fd7ae5670
+    changelog: |-
+        Jenkins LTS 2.580.2
+
+        2.580.2
+        October 28, 2026
+        Tested Configurations: Platforms: Linux, Windows
+        JDKs: 21, 25
+        Security
+        - Important security fixes. security advisory
+        Enhancement
+        - Update dependency handlebars to v4.7.10. pull 27510
+        - Avoid security scanner complaints by integrating the most recent release of the ASM byte code manipulation library. pull 27507
+        - Use Jetty 12.1.14 from Winstone and Stapler updates. pull 27506
+        Bug fix
+        - Adapt OS EOL test for Ubuntu 22.04. pull 27464
+        - Keep ANSI colours in the live console of freestyle builds after a pause in output. pull 27424
+
+        Source: https://www.jenkins.io/changelog/2.580.2/
+packaged_at: 2026-11-06T08:12:12.43655932Z
