@@ -20,7 +20,11 @@ class ExecutorIntegrationTest(unittest.TestCase):
         fixture = adapter.DeliveryGuardTest("test_tested_image_allowed")
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
-        fixture.proof["application_version"] = "2.580.2"
+        # Published package.yml advances automatically. Always select a new
+        # fixture version so future checks still exercise the real YAML encoder.
+        major, minor, patch = map(int, fixture.proof["application_version"].split("."))
+        target_version = f"{major}.{minor}.{patch + 1}"
+        fixture.proof["application_version"] = target_version
         fixture.save()
         executor = Path(os.environ["LAZYCAT_EXECUTOR_DIR"]).resolve()
         with tempfile.TemporaryDirectory(prefix="jenkins-executor-test-") as directory:
@@ -48,12 +52,13 @@ func main() {
     SourceRef:os.Args[2], RuntimeRef:"registry.lazycat.cloud/peter/jenkins-integration:verified",
   }})
   if err != nil { panic(err) }
-  _, err = yamledit.SetPackageVersion(filepath.Join(root, "package.yml"), "2.580.2")
+  change, err := yamledit.SetPackageVersion(filepath.Join(root, "package.yml"), os.Args[3])
   if err != nil { panic(err) }
+  if !change.Changed { panic("regression must exercise actual package version rewriting") }
 }
 ''')
             env = dict(os.environ, GOTOOLCHAIN="local", GOMAXPROCS="1", GOGC="50", GOMEMLIMIT="128MiB")
-            subprocess.run(["go", "run", "-mod=mod", ".", str(fixture.root), fixture.pin], cwd=work, env=env, check=True)
+            subprocess.run(["go", "run", "-mod=mod", ".", str(fixture.root), fixture.pin, target_version], cwd=work, env=env, check=True)
         adapter.guard.verify(fixture.root)
 
 
