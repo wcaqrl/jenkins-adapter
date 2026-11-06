@@ -33,7 +33,9 @@ build:
     # Includes both the image recipe and its verification scripts. Downloads
     # and generated metadata live in a temporary context, outside this tree.
     context: image
-    command: python3 -B image/ci/prepare.py
+    command: |
+      python3 -m pip install --disable-pip-version-check -r image/requirements-build.txt
+      python3 -B image/ci/prepare.py
     # Anonymous staging avoids requiring an extra registry PAT or making a
     # newly-created GHCR package public. LazyCat immediately copies this tested
     # image into its own permanent registry; ttl.sh is NOT the runtime registry.

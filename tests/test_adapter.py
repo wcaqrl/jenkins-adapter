@@ -147,6 +147,32 @@ class DeliveryGuardTest(unittest.TestCase):
     def test_tested_image_allowed(self):
         guard.verify(self.root)
 
+    def test_equivalent_yaml_formatting_does_not_invalidate_tested_image(self):
+        # The real executor removes blank separator lines and can change scalar
+        # quoting while updating the image/version. These edits do not change
+        # the deployment that was tested. Literal inject script text must stay.
+        self.manifest.write_text(self.manifest.read_text()
+                                 .replace("；\n\napplication:", "；\napplication:")
+                                 .replace("on: request", "'on': request")
+                                 .replace('run_as: "1000:1000"', "run_as: '1000:1000'"))
+        package = self.root / "package.yml"
+        text = package.read_text()
+        version = self.proof["application_version"]
+        package.write_text(text.replace("version: " + version, "version: '" + version + "'"))
+        guard.verify(self.root)
+
+    def test_inject_script_change_is_not_ignored_as_yaml_formatting(self):
+        self.manifest.write_text(self.manifest.read_text().replace(
+            'const path = String(ctx.request.path || "");',
+            'const path = String(ctx.request.path || "/other");'))
+        with self.assertRaisesRegex(ValueError, "recipe changed"):
+            guard.verify(self.root)
+
+    def test_boolean_type_change_is_not_ignored_as_scalar_quoting(self):
+        self.manifest.write_text(self.manifest.read_text().replace('auth_required: true', 'auth_required: "true"', 1))
+        with self.assertRaisesRegex(ValueError, "recipe changed"):
+            guard.verify(self.root)
+
     def test_changed_image_or_incomplete_checks_blocked(self):
         self.manifest.write_text(self.manifest.read_text().replace(self.pin, self.pin[:-1] + "b"))
         with self.assertRaisesRegex(ValueError, "differs"):

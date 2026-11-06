@@ -2,10 +2,9 @@
 """Refuse packaging unless the exact delivered custom image passed all gates."""
 
 import json
-from pathlib import Path
 import re
 
-from contract import CHECKS, ROOT, recipe_hash
+from contract import CHECKS, ROOT, load_config, recipe_hash
 from upstream import DIGEST
 
 
@@ -22,12 +21,13 @@ def verify(root=ROOT):
     expected = proof["custom_ref"] + "@" + proof["custom_digest"]
     if re.findall(r"^\s*# upstream: (\S+)\s*$", manifest, re.MULTILINE) != [expected]:
         raise ValueError("Delivered custom image differs from the tested image")
-    if not re.search(r"^\s+image: registry\.lazycat\.cloud/\S+\s*$", manifest, re.MULTILINE):
+    runtime = load_config(root / "lzc-manifest.yml")["services"]["jenkins"]["image"]
+    if not isinstance(runtime, str) or not runtime.startswith("registry.lazycat.cloud/"):
         raise ValueError("LazyCat official image copy has not completed")
-    package = (root / "package.yml").read_text()
-    if re.search(r"^version:\s*(\S+)\s*$", package, re.MULTILINE)[1] != proof["application_version"]:
+    package = load_config(root / "package.yml")
+    if package.get("version") != proof["application_version"]:
         raise ValueError("Application version differs from the verified release")
-    if not re.search(r"^package: peter\.lazycat\.app\.jenkins\s*$", package, re.MULTILINE):
+    if package.get("package") != "peter.lazycat.app.jenkins":
         raise ValueError("Unexpected application package")
 
 

@@ -58,11 +58,12 @@ Python 的补丁版本取决于锁定的 Python 镜像。运行验证报告记�
    不上传镜像、不生成 LPK、不送审。结果在验证 Artifact 中。
 5. 准备送审时取消 `dry-run`。`verify-image` 在真实执行时不用勾选，正式流程本身
    强制构建和测试；成功后核对审核记录、Release 的版本化 LPK 和状态提交。
-6. 首次成功后，停用旧 `wcaqrl/jenkins` 仓库的构建/发布工作流，再在本仓库
-   Actions Variables 设置 **`LAZYCAT_AUTO_PUBLISH=true`** 启用定时真实发布。
-   否则定时任务始终只检查，避免两个仓库同时提交同一应用。
+6. 定时任务与 Immich、Memos、Plex 等适配器一致，直接检查并发布新版本，
+   **不需要配置额外的 Actions Variable**。切换后应停用旧 `wcaqrl/jenkins`
+   仓库的构建/发布工作流，避免两个仓库同时处理同一应用。
 
 每 6 小时检查一次（北京时间约 02:41、08:41、14:41、20:41，GitHub 可能延迟）。
+推送代码只触发只读检查；手动执行默认仍为 `dry-run`。
 若仓库要求人工批准首次 Actions 运行或禁止工作流写入内容，需要按运行提示调整。
 
 ## 版本、日志与状态
@@ -87,9 +88,11 @@ Release 与送审在打包后分别执行；Release 失败不会阻止送审。�
 ## 验证与维护
 
 ```bash
-python3 -m pip install PyYAML==6.0.2
+python3 -m pip install -r image/requirements-build.txt
 sh -n image/entrypoint.sh
 python3 -B -m unittest discover -s tests -v
+# 有通用执行器的本地 checkout 时，连同实际 YAML 编辑器集成回归一起运行：
+LAZYCAT_EXECUTOR_DIR=/path/to/lazycat-action python3 -B -m unittest discover -s tests -v
 python3 -B image/ci/upstream.py candidate
 LAZYCAT_SOURCE_VERSION=2.580.2 LAZYCAT_SOURCE_TAG=2.580.2-jdk21 \
   python3 -B image/ci/upstream.py changelog
@@ -107,6 +110,9 @@ LAZYCAT_SOURCE_VERSION=2.580.2 LAZYCAT_SOURCE_TAG=2.580.2-jdk21 \
 - 新容器再次挂载同一目录，以及显式密码重置后数据仍在。
 
 `lzc-build.yml` 的打包脚本会拒绝缺少验证证明、摘要不符或测试后被修改的配方。
+Manifest 和 Package 按解析后的配置内容校验，允许执行器改写空行、缩进、引号
+及键顺序；仅放行指定服务的镜像引用和应用版本变更。镜像摘要另行核对，
+injects 脚本内容、字段类型、权限与其余构建文件的变化仍会阻止打包。
 因此不能跳过镜像验证，直接在本机 `lzc-cli project build` 冒充已验证的新包。
 无需修改通用 `lazycat-action`，旧项目也暂不删除。
 

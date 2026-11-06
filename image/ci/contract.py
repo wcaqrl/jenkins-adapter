@@ -1,12 +1,35 @@
-"""Shared immutable delivery contract; standard library only."""
+"""Shared immutable delivery contract with semantic YAML comparison."""
 
 import hashlib
+import json
 from pathlib import Path
+import re
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKS = ["fresh-install", "baseline-install", "old-to-new-upgrade", "changed-password",
           "encrypted-credentials", "job-history", "artifacts", "pipeline-toolchains",
           "plugins", "dark-theme", "container-recreation", "password-reset"]
+
+
+class ConfigLoader(yaml.SafeLoader):
+    # Match Go's YAML boolean handling. YAML 1.1's on/off/yes/no conversion
+    # would incorrectly turn the injects' literal `on` key into a boolean.
+    yaml_implicit_resolvers = {
+        key: [(tag, pattern) for tag, pattern in rules if tag != "tag:yaml.org,2002:bool"]
+        for key, rules in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
+
+
+ConfigLoader.add_implicit_resolver("tag:yaml.org,2002:bool", re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF"))
+
+
+def load_config(path):
+    document = yaml.load(path.read_text(), Loader=ConfigLoader)
+    if not isinstance(document, dict):
+        raise ValueError("Expected a YAML configuration mapping: " + str(path))
+    return document
 
 
 def recipe_hash(root=ROOT):
@@ -19,13 +42,15 @@ def recipe_hash(root=ROOT):
     for path in sorted(paths):
         data = path.read_bytes()
         if path.name == "lzc-manifest.yml":
-            # The executor legitimately changes only these two lines when it
-            # replaces a tested staging image with the official copied image.
-            import re
-            data = re.sub(rb"(?m)^\s*# upstream: .+\n", b"", data)
-            data = re.sub(rb"(?m)^(\s+image:) .+$", rb"\1 <delivered-image>", data)
+            # @v1 rewrites the entire YAML document while replacing image and
+            # upstream comment. Compare parsed content, not emitted whitespace
+            # or scalar style. Script strings and scalar types remain exact.
+            document = load_config(path)
+            document["services"]["jenkins"]["image"] = "<delivered-image>"
+            data = json.dumps(document, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
         elif path.name == "package.yml":
-            import re
-            data = re.sub(rb"(?m)^version: .+$", b"version: <allocated-version>", data)
+            document = load_config(path)
+            document["version"] = "<allocated-version>"
+            data = json.dumps(document, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
         digest.update(str(path.relative_to(root)).encode() + b"\0" + data + b"\0")
     return digest.hexdigest()

@@ -1,0 +1,2 @@
+# Runner-side packaging/verification dependency; not installed inside Jenkins.
+PyYAML==6.0.2

@@ -1,5 +1,5 @@
 name: Update Jenkins for LazyCat
-run-name: ${{ (github.event_name == 'push' || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry-run)) && 'Jenkins → LazyCat [仅检查]' || 'Jenkins → LazyCat [验证定制镜像、打包并送审]' }}
+run-name: ${{ (github.event_name == 'push' || inputs.dry-run) && 'Jenkins → LazyCat [仅检查]' || 'Jenkins → LazyCat [验证定制镜像、打包并送审]' }}
 
 on:
   push:
@@ -45,14 +45,28 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
+      - name: Checkout actual v1 YAML editors for integration regression
+        uses: actions/checkout@v7
+        with:
+          repository: wcaqrl/lazycat-action
+          ref: v1
+          path: .lazycat-action/executor
+          persist-credentials: false
+      - name: Set up Go for actual executor YAML integration test
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.25.x'
+          cache: false
       - name: Install configuration test dependency
-        run: python3 -m pip install --disable-pip-version-check PyYAML==6.0.2
+        run: python3 -m pip install --disable-pip-version-check -r image/requirements-build.txt
       - name: Validate metadata, scripts, changelog and delivery guards
+        env:
+          LAZYCAT_EXECUTOR_DIR: ${{ github.workspace }}/.lazycat-action/executor
         run: |
           sh -n image/entrypoint.sh
           python3 -B -m unittest discover -s tests -v
       - name: Verify developer permission before real publication
-        if: (github.event_name == 'workflow_dispatch' && !inputs.dry-run) || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH == 'true')
+        if: (github.event_name == 'workflow_dispatch' && !inputs.dry-run) || github.event_name == 'schedule'
         env:
           LZC_API_TOKEN: ${{ secrets.LZC_API_TOKEN }}
         run: |
@@ -113,7 +127,7 @@ jobs:
       runner: ubuntu-24.04
       toolchains: docker
       enable-qemu: false
-      dry-run: ${{ github.event_name == 'push' || (github.event_name == 'schedule' && vars.LAZYCAT_AUTO_PUBLISH != 'true') || (github.event_name == 'workflow_dispatch' && inputs.dry-run) }}
+      dry-run: ${{ github.event_name == 'push' || inputs.dry-run || false }}
       retry-rejected: ${{ github.event_name == 'workflow_dispatch' && inputs.retry-rejected || false }}
     secrets:
       LZC_API_TOKEN: ${{ secrets.LZC_API_TOKEN }}
