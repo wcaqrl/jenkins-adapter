@@ -7,7 +7,7 @@ source:
     tag: 2.580.2-jdk21
     image: docker.io/jenkins/jenkins
 fingerprint: sha256:60da5d674f39b9fffcf8126b0fbc56d71ffb2f310a6bf9c50c4c83338385ccc8
-status: packaged
+status: submitted
 images:
     - id: jenkins
       source_ref: ttl.sh/lazycat-jenkins-60da5d674f39:24h@sha256:543a6c80dc86d17343b1181c1c27a9ecdc221551f4bdc7b00a7a36680f0217e5
@@ -36,3 +36,19 @@ application:
 
         Source: https://www.jenkins.io/changelog/2.580.2/
 packaged_at: 2026-11-06T08:12:12.43655932Z
+reviews:
+    - id: 22670
+      source:
+        kind: oci
+        version: 2.580.2
+        ref: docker.io/jenkins/jenkins:2.580.2-jdk21
+        revision: sha256:19db581de85e7ce6a1ad89e55a0318d1114e4f103d2dc25493a235ff2b26d044
+        tag: 2.580.2-jdk21
+        image: docker.io/jenkins/jenkins
+      fingerprint: sha256:60da5d674f39b9fffcf8126b0fbc56d71ffb2f310a6bf9c50c4c83338385ccc8
+      application_version: 2.580.2
+      lpk_sha256: 7f384744bfcf014aede28da06eeec0ef9e25dcfbd93820c7b0a64b6fd7ae5670
+      status: waiting
+      created_at: 2026-11-06T08:12:35.691Z
+      submitted_at: 2026-11-06T08:12:35.833442417Z
+      checked_at: 2026-11-06T08:12:35.833442928Z
